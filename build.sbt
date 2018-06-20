@@ -11,6 +11,9 @@ crossScalaVersions := Seq("2.11.11", "2.12.3")
 lazy val akkaHttpVersion = "10.0.10"
 lazy val circeVersion    = "0.8.0"
 
+// https://mvnrepository.com/artifact/net.smartam.leeloo/oauth2-client
+// libraryDependencies += "net.smartam.leeloo" % "oauth2-client" % "0.1"
+
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-http"                   % akkaHttpVersion,
   "io.circe"          %% "circe-generic"               % circeVersion,
