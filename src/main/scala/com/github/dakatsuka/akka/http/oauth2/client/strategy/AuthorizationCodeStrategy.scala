@@ -10,7 +10,7 @@ import com.github.dakatsuka.akka.http.oauth2.client.{ ConfigLike, Error, GrantTy
 object AuthorizationCodeStrategy {
   val tryGetAuthCode = Flow[HttpResponse].map { resp =>
     resp.status match {
-      case StatusCodes.OK =>
+      case StatusCodes.Found =>
         val locationHeader = resp.getHeader("location")
 
         if (locationHeader.isPresent) {
@@ -40,7 +40,7 @@ class AuthorizationCodeStrategy extends Strategy(GrantType.AuthorizationCode) {
     Option(uri)
   }
 
-  def getAuthorizationCodeSource(url: Uri): Source[HttpRequest, NotUsed] = {
+  override def getAuthorizationCodeSource(url: Uri): Source[HttpRequest, NotUsed] = {
     val request = HttpRequest(method = HttpMethods.GET,
                               uri = url,
                               headers = List(
