@@ -87,7 +87,7 @@ class Client2Spec extends FunSpec with Matchers {
 
       val s = Source.single(
         client.getAuthorizeUrl(GrantType.AuthorizationCode,
-                               Map("redirect_uri" -> "http://localhost:8081/graphql", "scope" -> "offline_access"))
+                               Map("redirect_uri" -> "http://localhost:8080/graphql", "scope" -> "offline_access"))
       )
 
       val a1 = s

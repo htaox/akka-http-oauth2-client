@@ -9,6 +9,8 @@ import com.github.dakatsuka.akka.http.oauth2.client.{ ConfigLike, GrantType }
 class PasswordCredentialsStrategy extends Strategy(GrantType.PasswordCredentials) {
   override def getAuthorizeUrl(config: ConfigLike, params: Map[String, String] = Map.empty): Option[Uri] = None
 
+  override def getAuthorizationCodeSource(url: Uri): Source[HttpRequest, NotUsed] = ???
+
   override def getAccessTokenSource(config: ConfigLike, params: Map[String, String] = Map.empty): Source[HttpRequest, NotUsed] = {
     require(params.contains("username"))
     require(params.contains("password"))

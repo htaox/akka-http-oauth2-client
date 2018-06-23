@@ -9,6 +9,8 @@ import com.github.dakatsuka.akka.http.oauth2.client.{ ConfigLike, GrantType }
 class ClientCredentialsStrategy extends Strategy(GrantType.ClientCredentials) {
   override def getAuthorizeUrl(config: ConfigLike, params: Map[String, String] = Map.empty): Option[Uri] = None
 
+  override def getAuthorizationCodeSource(url: Uri): Source[HttpRequest, NotUsed] = ???
+
   override def getAccessTokenSource(config: ConfigLike, params: Map[String, String] = Map.empty): Source[HttpRequest, NotUsed] = {
     val uri = Uri
       .apply(config.site.toASCIIString)

@@ -15,6 +15,8 @@ class ImplicitStrategy extends Strategy(GrantType.Implicit) {
     Option(uri)
   }
 
+  override def getAuthorizationCodeSource(url: Uri): Source[HttpRequest, NotUsed] = ???
+
   override def getAccessTokenSource(config: ConfigLike, params: Map[String, String] = Map.empty): Source[HttpRequest, NotUsed] =
     Source.empty
 }

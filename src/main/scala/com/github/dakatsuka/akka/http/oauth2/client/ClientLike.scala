@@ -16,4 +16,9 @@ trait ClientLike {
   )(implicit s: Strategy[A], ec: ExecutionContext, mat: Materializer): Future[Either[Throwable, AccessToken]]
 
   def getConnectionWithAccessToken(accessToken: AccessToken): Flow[HttpRequest, HttpResponse, _]
+
+  def getAuthorizationCode[A <: GrantType](
+      grant: A,
+      authorizeUrl: Option[Uri]
+  )(implicit s: Strategy[A], ec: ExecutionContext, mat: Materializer): Future[Either[Throwable, String]]
 }
