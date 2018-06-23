@@ -20,7 +20,8 @@ libraryDependencies ++= Seq(
   "io.circe"          %% "circe-parser"                % circeVersion,
   "com.typesafe.akka" %% "akka-http-testkit"           % akkaHttpVersion % "test",
   "org.scalatest"     %% "scalatest"                   % "3.0.3" % "test",
-  "org.scalamock"     %% "scalamock-scalatest-support" % "3.4.2" % "test"
+  "org.scalamock"     %% "scalamock-scalatest-support" % "3.4.2" % "test",
+  "net.debasishg"     %% "redisreact"                  % "0.9"
 )
 
 scalacOptions ++= Seq(

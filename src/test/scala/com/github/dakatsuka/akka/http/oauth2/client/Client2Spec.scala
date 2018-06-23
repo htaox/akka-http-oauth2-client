@@ -1,9 +1,10 @@
 package com.github.dakatsuka.akka.http.oauth2.client
 import scala.language.postfixOps
 import java.net.URI
+// import java.time.ZonedDateTime
 
-import akka.http.scaladsl.model.headers.RawHeader
 import akka.stream.scaladsl.{ Sink, Source }
+import io.circe.Decoder
 
 // import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.{ Http, HttpsConnectionContext }
@@ -21,11 +22,21 @@ import org.scalatest.{ FunSpec, Matchers }
 import scala.concurrent.{ Await, ExecutionContext }
 import scala.concurrent.duration._
 
+import com.redis.RedisClient
+import io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
+import io.circe.generic.semiauto._
+
 class Client2Spec extends FunSpec with Matchers {
 
   implicit val system: ActorSystem        = ActorSystem()
   implicit val ec: ExecutionContext       = system.dispatcher
   implicit val materializer: Materializer = ActorMaterializer()
+
+  // Redis client setup
+  val client = RedisClient("localhost", 6379)
+
+  // circe
+  implicit val tokenDecoder: Decoder[AccessToken] = deriveDecoder[AccessToken]
 
   private val trustfulSslContext: SSLContext = {
 
@@ -94,14 +105,35 @@ class Client2Spec extends FunSpec with Matchers {
           }
         }
         .runWith(Sink.head)
-        .map(Right.apply)
         .recover {
           case ex => Left(ex)
         }
 
       val res1 = Await.result(a1, 10 second)
 
-      println(res1)
+
+      val j = res1 match {
+        case Right(token) =>
+          token.asJson.noSpaces
+        case Left(ex) =>
+          ex.getMessage
+      }
+
+      val decodedFoo: AccessToken = decode[AccessToken](j)
+      println(decodedFoo)
+
+      if (res1.isRight) {
+        res1.right.map { token =>
+          val json = token.asJson.noSpaces
+          println(json)
+
+          val decodedFoo = decode[AccessToken](json)
+
+          println(decodedFoo)
+        }
+      }
+
+      println("Done")
 
     }
 
