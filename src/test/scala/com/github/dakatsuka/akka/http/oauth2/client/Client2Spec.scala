@@ -85,6 +85,29 @@ class Client2Spec extends FunSpec with Matchers {
 
       println(authorizeUrl)
 
+      val s = Source.single(
+        client.getAuthorizeUrl(GrantType.AuthorizationCode,
+                               Map("redirect_uri" -> "http://localhost:8081/graphql", "scope" -> "offline_access"))
+      )
+
+      val a1 = s
+        .mapAsync(1)(client.getAuthorizationCode(GrantType.AuthorizationCode, _))
+        .mapAsync(1) { authCodeRes =>
+          authCodeRes match {
+            case Right(code) =>
+              client.getAccessToken(GrantType.AuthorizationCode, Map("code" -> code, "redirect_uri" -> "http://localhost:8080/graphql"))
+            case Left(ex) => throw ex
+          }
+        }
+        .runWith(Sink.head)
+        .map(Right.apply)
+        .recover {
+          case ex => Left(ex)
+        }
+
+      val res1 = Await.result(a1, 10 second)
+      println(res1)
+
       // Get the authorization code.
       val request = HttpRequest(method = HttpMethods.GET,
                                 uri = authorizeUrl.get,

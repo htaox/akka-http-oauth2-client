@@ -2,10 +2,11 @@ package com.github.dakatsuka.akka.http.oauth2.client
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.headers.OAuth2BearerToken
-import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, Uri }
+import akka.http.scaladsl.model.headers.{ OAuth2BearerToken, RawHeader }
+import akka.http.scaladsl.model._
+// import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
-import akka.stream.scaladsl.{ Flow, Sink }
+import akka.stream.scaladsl.{ Flow, Sink, Source }
 import com.github.dakatsuka.akka.http.oauth2.client.Error.UnauthorizedException
 import com.github.dakatsuka.akka.http.oauth2.client.strategy.Strategy
 
@@ -15,6 +16,53 @@ class Client(config: ConfigLike, connection: Option[Flow[HttpRequest, HttpRespon
     extends ClientLike {
   def getAuthorizeUrl[A <: GrantType](grant: A, params: Map[String, String] = Map.empty)(implicit s: Strategy[A]): Option[Uri] =
     s.getAuthorizeUrl(config, params)
+
+  def getAuthorizationCode[A <: GrantType](
+      grant: A,
+      authorizeUrl: Option[Uri]
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Throwable, String]] = {
+    authorizeUrl match {
+      case Some(url) =>
+        // Get the authorization code.
+        val request = HttpRequest(method = HttpMethods.GET,
+                                  uri = url,
+                                  headers = List(
+                                    RawHeader("Accept", "*/*")
+                                  ))
+
+        val tryGetAuthCode = Flow[HttpResponse].map { resp =>
+          resp.status match {
+            case StatusCodes.OK =>
+              val locationHeader = resp.getHeader("location")
+
+              if (locationHeader.isPresent) {
+                val location = locationHeader.get().value()
+                val authCode = Uri(location).query().getOrElse("code", "")
+
+                if (authCode.length > 0)
+                  authCode
+                else
+                  throw new NoSuchElementException("Code is not found in the querystring.")
+              } else {
+                throw new NoSuchElementException("Location header missing.")
+              }
+            case x =>
+              throw new UnauthorizedException(Error.InvalidClient, "Unauthorized client.", resp)
+          }
+        }
+
+        Source
+          .single(request)
+          .via(connection.getOrElse(defaultConnection))
+          .via(tryGetAuthCode)
+          .runWith(Sink.head)
+          .map(Right.apply)
+          .recover {
+            case ex => Left(ex)
+          }
+      case _ => Future(Left(new NoSuchElementException("Authorize url missing.")))
+    }
+  }
 
   def getAccessToken[A <: GrantType](
       grant: A,
