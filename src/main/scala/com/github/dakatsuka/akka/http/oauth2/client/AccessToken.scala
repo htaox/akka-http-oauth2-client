@@ -11,7 +11,7 @@ import scala.concurrent.Future
 case class AccessToken(
     accessToken: String,
     tokenType: String,
-    expiresIn: Long,
+    expiresIn: Int,
     refreshToken: Option[String]
 )
 
@@ -20,7 +20,7 @@ object AccessToken extends JsonUnmarshaller {
     for {
       accessToken  <- c.downField("access_token").as[String].right
       tokenType    <- c.downField("token_type").as[String].right
-      expiresIn    <- c.downField("expires_in").as[Long].right
+      expiresIn    <- c.downField("expires_in").as[Int].right
       refreshToken <- c.downField("refresh_token").as[Option[String]].right
     } yield AccessToken(accessToken, tokenType, expiresIn, refreshToken)
   }

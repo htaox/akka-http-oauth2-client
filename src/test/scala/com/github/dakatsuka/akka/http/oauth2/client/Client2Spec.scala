@@ -1,10 +1,20 @@
 package com.github.dakatsuka.akka.http.oauth2.client
 import scala.language.postfixOps
 import java.net.URI
+import java.time.{ Instant }
+
+import akka.util.Timeout
+import com.redis.serialization.{ Reader, StringReader, StringWriter, Writer }
+import io.circe.{ derivation, Decoder, ObjectEncoder }
+import io.circe.derivation._
+import io.circe.syntax._
+import io.circe.parser._
+
+import scala.concurrent.Future
+
 // import java.time.ZonedDateTime
 
 import akka.stream.scaladsl.{ Sink, Source }
-import io.circe.Decoder
 
 // import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.{ Http, HttpsConnectionContext }
@@ -23,20 +33,41 @@ import scala.concurrent.{ Await, ExecutionContext }
 import scala.concurrent.duration._
 
 import com.redis.RedisClient
-import io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
-import io.circe.generic.semiauto._
+// import io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
+// import io.circe.generic.semiauto._
+
+// circe support for scala-redis-nb
+trait CirceJsonSupport {
+  // import io.circe.parser.decode
+  // import io.circe.syntax._
+  // implicit val encoder: ObjectEncoder[AccessToken] = deriveEncoder(derivation.renaming.snakeCase)
+  // implicit val decoder: Decoder[AccessToken] = deriveDecoder(derivation.renaming.snakeCase)
+
+  implicit def circeJsonStringReader[A](implicit decoder: Decoder[A]): Reader[A] = {
+    StringReader { a =>
+      val r = decode[A](a)
+      r match {
+        case Right(a) => a
+        case Left(x)  => throw (x)
+      }
+    }
+  }
+
+  implicit def circeJsonStringWriter[A](implicit encoder: ObjectEncoder[A]): Writer[A] = StringWriter(_.asJson.noSpaces)
+
+}
+
+object CirceJsonSupport extends CirceJsonSupport
 
 class Client2Spec extends FunSpec with Matchers {
 
   implicit val system: ActorSystem        = ActorSystem()
   implicit val ec: ExecutionContext       = system.dispatcher
   implicit val materializer: Materializer = ActorMaterializer()
+  implicit val timeout                    = Timeout(5 seconds)
 
   // Redis client setup
-  val client = RedisClient("localhost", 6379)
-
-  // circe
-  implicit val tokenDecoder: Decoder[AccessToken] = deriveDecoder[AccessToken]
+  val redisClient = RedisClient("localhost", 6379)
 
   private val trustfulSslContext: SSLContext = {
 
@@ -111,7 +142,46 @@ class Client2Spec extends FunSpec with Matchers {
 
       val res1 = Await.result(a1, 10 second)
 
+      // circe
+      import CirceJsonSupport._
+      implicit val encoder: ObjectEncoder[AccessToken] = deriveEncoder(derivation.renaming.snakeCase)
+      implicit val decoder: Decoder[AccessToken]       = deriveDecoder(derivation.renaming.snakeCase)
 
+      if (res1.isRight) {
+        val o = res1.right.get
+
+        val g: Future[Option[AccessToken]] = for {
+          s <- redisClient.set("4321", o)
+          t <- redisClient.get[AccessToken]("4321")
+          u <- redisClient.zadd("sessions", (1000 * o.expiresIn) + Instant.now().toEpochMilli, "4321")
+        } yield t
+
+        val h = Await.result(g, 10 second)
+
+        h.map { a =>
+          println(a)
+        }
+
+        // // If just reading from redis and not using lib, Right implicit derivation would not be used.
+        // // Because one would not be AccessToken object implicit would not be used.
+        // implicit val decoder: Decoder[AccessToken] = deriveDecoder(derivation.renaming.snakeCase)
+        val j = o.asJson.noSpaces
+        println(j)
+        val tokenRight = decode[AccessToken](j)
+        val token      = tokenRight.right.get
+        println(token)
+
+        val g1: Future[Option[AccessToken]] = for {
+          s <- redisClient.del("4321")
+          t <- redisClient.get[AccessToken]("4321")
+        } yield t
+
+        val h1 = Await.result(g1, 10 second)
+        h1 should be(None)
+
+      }
+
+      /*
       val j = res1 match {
         case Right(token) =>
           token.asJson.noSpaces
@@ -119,19 +189,9 @@ class Client2Spec extends FunSpec with Matchers {
           ex.getMessage
       }
 
-      val decodedFoo: AccessToken = decode[AccessToken](j)
+      val decodedFoo = decode[AccessToken](j)
       println(decodedFoo)
-
-      if (res1.isRight) {
-        res1.right.map { token =>
-          val json = token.asJson.noSpaces
-          println(json)
-
-          val decodedFoo = decode[AccessToken](json)
-
-          println(decodedFoo)
-        }
-      }
+       */
 
       println("Done")
 
